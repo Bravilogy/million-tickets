@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,8 +32,16 @@ func init() {
 	var err error
 	ctx = context.Background()
 
-	ex, _ := os.Executable()
-	sa := option.WithCredentialsFile(filepath.Join(filepath.Dir(ex), "database.json"))
+	if len(os.Args) < 2 {
+		log.Fatalln("No database json file passed as an argument")
+	}
+
+	databaseConfigPath := os.Args[1]
+	if _, err := os.Stat(databaseConfigPath); err != nil {
+		log.Fatalln(err)
+	}
+
+	sa := option.WithCredentialsFile(databaseConfigPath)
 
 	app, err = firebase.NewApp(ctx, nil, sa)
 	if err != nil {
