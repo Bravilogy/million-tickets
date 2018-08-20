@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -57,7 +58,14 @@ func queryElementText(e *colly.HTMLElement, query string) string {
 	return strings.TrimSpace(e.ChildText(query))
 }
 
-func crawl(draws map[string]bool) func(*colly.HTMLElement) {
+func addTicket(ticket Ticket) {
+	_, _, err := client.Collection("tickets").Add(ctx, ticket)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func crawl(draws map[string]bool, wg *sync.WaitGroup) func(*colly.HTMLElement) {
 	return func(e *colly.HTMLElement) {
 		date := queryElementText(e, ".table_cell.table_cell_1 .table_cell_block")
 		main := queryElementText(e, ".table_cell.table_cell_3 .table_cell_block")
@@ -72,15 +80,19 @@ func crawl(draws map[string]bool) func(*colly.HTMLElement) {
 				Extra: ticketToNumbers(extra),
 			}
 
-			_, _, err := client.Collection("tickets").Add(ctx, t)
-			if err != nil {
-				log.Fatalln(err)
-			}
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				addTicket(t)
+			}()
 		}
 	}
 }
 
 func main() {
+	var wg sync.WaitGroup
+
 	entries, err := client.Collection("tickets").Documents(ctx).GetAll()
 	if err != nil {
 		log.Fatalln(err)
@@ -95,9 +107,11 @@ func main() {
 	}
 
 	c := colly.NewCollector()
-	c.OnHTML(".list_table.list_table_presentation.table_row_odd", crawl(draws))
-	c.OnHTML(".list_table.list_table_presentation.table_row_even", crawl(draws))
+	c.OnHTML(".list_table.list_table_presentation.table_row_odd", crawl(draws, &wg))
+	c.OnHTML(".list_table.list_table_presentation.table_row_even", crawl(draws, &wg))
 	c.Visit(historyURL)
+
+	wg.Wait()
 
 	log.Println("All done.")
 }
