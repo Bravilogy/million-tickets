@@ -57,23 +57,13 @@ func queryElementText(e *colly.HTMLElement, query string) string {
 	return strings.TrimSpace(e.ChildText(query))
 }
 
-func isInSlice(s string, list []string) bool {
-	for _, e := range list {
-		if s == e {
-			return true
-		}
-	}
-
-	return false
-}
-
-func crawl(draws []string) func(*colly.HTMLElement) {
+func crawl(draws map[string]bool) func(*colly.HTMLElement) {
 	return func(e *colly.HTMLElement) {
 		date := queryElementText(e, ".table_cell.table_cell_1 .table_cell_block")
 		main := queryElementText(e, ".table_cell.table_cell_3 .table_cell_block")
 		extra := queryElementText(e, ".table_cell.table_cell_4 .table_cell_block")
 
-		if !isInSlice(date, draws) {
+		if !draws[date] {
 			log.Printf("Adding %s draw to the list", date)
 
 			t := Ticket{
@@ -96,12 +86,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	var draws []string
+	var draws = make(map[string]bool)
 
 	for _, entry := range entries {
 		var t Ticket
 		entry.DataTo(&t)
-		draws = append(draws, t.Date)
+		draws[t.Date] = true
 	}
 
 	c := colly.NewCollector()
