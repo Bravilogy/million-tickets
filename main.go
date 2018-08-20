@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,7 +32,9 @@ var (
 func init() {
 	var err error
 	ctx = context.Background()
-	sa := option.WithCredentialsFile("./database.json")
+
+	ex, _ := os.Executable()
+	sa := option.WithCredentialsFile(filepath.Join(filepath.Dir(ex), "database.json"))
 
 	app, err = firebase.NewApp(ctx, nil, sa)
 	if err != nil {
